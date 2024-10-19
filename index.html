@@ -1,0 +1,334 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+
+        #callContainer {
+            margin-bottom: 20px;
+        }
+
+        video {
+            width: 300px;
+            height: 200px;
+            border: 1px solid black;
+            margin: 10px;
+        }
+
+        #videoContainer {
+            position: relative;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .spinner {
+            border: 8px solid #f3f3f3;
+            /* Light gray */
+            border-top: 8px solid #3498db;
+            /* Blue */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Video Call</h1>
+    <div id="callContainer">
+        <p>Your ID: <span id="clientId"></span></p>
+        <input type="text" id="targetInput" placeholder="Enter Target ID" />
+        <button id="startCall">Start Call</button>
+    </div>
+
+    <div id="videoContainer" style="display: none;">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay></video>
+        <div id="connectingOverlay" class="overlay">
+            <p>Connecting...</p>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+ 
+
+    <script>
+        document.getElementById('startCall').addEventListener('click', function () {
+            document.getElementById('videoContainer').style.display = 'block';
+            document.getElementById('connectingOverlay').style.display = 'flex';
+
+            // Simulate connecting time
+            setTimeout(function () {
+                document.getElementById('connectingOverlay').style.display = 'none';
+                // Here, you would normally set up the call and start the video streams
+            }, 3000); // Simulates a 3-second connection time
+        });
+
+    </script>
+
+    <script>
+        let localStream;
+        let peerConnection;
+        const iceServers = {
+            iceServers: [{ urls: 'STUN:stun.l.google.com:19302' }]
+        };
+
+        const signalingServer = new WebSocket('ws://localhost:8080');
+
+        signalingServer.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+            if (message.id) {
+                document.getElementById('clientId').textContent = message.id; // Display ID
+            } else if (message.offer) {
+                await handleOffer(message.offer, message.from);
+            } else if (message.answer) {
+                await handleAnswer(message.answer);
+            } else if (message.iceCandidate) {
+                await handleIceCandidate(message.iceCandidate);
+            }
+        };
+
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const startCallButton = document.getElementById('startCall');
+        const targetInput = document.getElementById('targetInput');
+
+        startCallButton.onclick = async () => {
+            const targetId = targetInput.value; // Get target ID from input
+            await startCall(targetId);
+        };
+
+        async function startCall(targetId) {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localVideo.srcObject = localStream;
+
+            peerConnection = new RTCPeerConnection(iceServers);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    signalingServer.send(JSON.stringify({ iceCandidate: event.candidate, target: targetId }));
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            signalingServer.send(JSON.stringify({ offer: offer, target: targetId }));
+        }
+
+        async function handleOffer(offer, from) {
+            peerConnection = new RTCPeerConnection(iceServers);
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    signalingServer.send(JSON.stringify({ iceCandidate: event.candidate, target: from }));
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            signalingServer.send(JSON.stringify({ answer: answer, target: from }));
+        }
+
+        async function handleAnswer(answer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+
+        async function handleIceCandidate(candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+    </script>
+</body>
+
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Demo</title>
+    <style>
+        video {
+            width: 300px;
+            height: 200px;
+            border: 1px solid black;
+            margin: 10px;
+        }
+        #chat {
+            margin-top: 20px;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            height: 100px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebRTC Video Call</h1>
+
+    <div>
+        <p>Your ID: <span id="clientId"></span></p>
+        <input type="text" id="targetInput" placeholder="Enter Target ID" />
+        <button id="startCall">Start Call</button> 
+    </div>
+
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+
+    <div id="chat">
+        <div id="messages"></div>
+        <input type="text" id="chatInput" placeholder="Type a message..." />
+        <button id="sendChat">Send</button>
+    </div>
+
+    <script>
+        let localStream;
+        let peerConnection;
+        const iceServers = {
+            iceServers: [{ urls: 'STUN:stun.l.google.com:19302' }]
+        };
+
+        const signalingServer = new WebSocket('ws://192.168.1.114:8080');
+
+        signalingServer.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+            if (message.id) {
+                document.getElementById('clientId').textContent = message.id; // Display ID
+            } else if (message.offer) {
+                await handleOffer(message.offer, message.from);
+            } else if (message.answer) {
+                await handleAnswer(message.answer);
+            } else if (message.iceCandidate) {
+                await handleIceCandidate(message.iceCandidate);
+            } else if (message.chat) {
+                displayMessage(message.from, message.chat); // Display incoming chat message
+            }
+        };
+
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const startCallButton = document.getElementById('startCall');
+        const targetInput = document.getElementById('targetInput');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatButton = document.getElementById('sendChat');
+        const messagesDiv = document.getElementById('messages');
+
+        startCallButton.onclick = async () => {
+            const targetId = targetInput.value; // Get target ID from input
+            await startCall(targetId);
+        };
+
+        sendChatButton.onclick = () => {
+            const message = chatInput.value;
+            const targetId = targetInput.value;
+            signalingServer.send(JSON.stringify({ chat: message, target: targetId }));
+            displayMessage('You', message); // Display sent message
+            chatInput.value = ''; // Clear the input
+        };
+
+        async function startCall(targetId) {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localVideo.srcObject = localStream;
+
+            peerConnection = new RTCPeerConnection(iceServers);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    signalingServer.send(JSON.stringify({ iceCandidate: event.candidate, target: targetId }));
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            signalingServer.send(JSON.stringify({ offer: offer, target: targetId }));
+        }
+
+        async function handleOffer(offer, from) {
+            peerConnection = new RTCPeerConnection(iceServers);
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    signalingServer.send(JSON.stringify({ iceCandidate: event.candidate, target: from }));
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            signalingServer.send(JSON.stringify({ answer: answer, target: from }));
+        }
+
+        async function handleAnswer(answer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+
+        async function handleIceCandidate(candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        function displayMessage(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${sender}: ${message}`;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to the bottom
+        }
+    </script>
+</body>
+</html>
