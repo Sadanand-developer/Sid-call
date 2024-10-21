@@ -48,7 +48,7 @@
             iceServers: [{ urls: 'STUN:stun.l.google.com:19302' }]
         };
 
-        const signalingServer = new WebSocket('ws://localhost:3000/api/server');
+        const signalingServer = new WebSocket('ws://localhost:8080/api/server');
 
         signalingServer.onmessage = async (event) => {
             const message = JSON.parse(event.data);
